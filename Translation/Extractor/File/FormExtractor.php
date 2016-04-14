@@ -28,6 +28,7 @@ use Doctrine\Common\Annotations\DocParser;
 use JMS\TranslationBundle\Model\MessageCatalogue;
 use JMS\TranslationBundle\Translation\Extractor\FileVisitorInterface;
 use JMS\TranslationBundle\Logger\LoggerAwareInterface;
+use PhpParser\Node\Expr\Closure;
 use Symfony\Component\HttpKernel\Log\LoggerInterface;
 
 class FormExtractor implements FileVisitorInterface, \PHPParser_NodeVisitor
@@ -106,7 +107,7 @@ class FormExtractor implements FileVisitorInterface, \PHPParser_NodeVisitor
                     continue;
                 }
 
-                if ('label' !== $item->key->value && 'empty_value' !== $item->key->value && 'choices' !== $item->key->value && 'invalid_message' !== $item->key->value && 'attr' !== $item->key->value ) {
+                if ('label' !== $item->key->value && 'empty_value' !== $item->key->value && 'choices' !== $item->key->value && 'invalid_message' !== $item->key->value && 'attr' !== $item->key->value && $item->key->value !== 'header/value' && $item->key->value !== 'column/actions') {
                     continue;
                 }
 
@@ -114,6 +115,8 @@ class FormExtractor implements FileVisitorInterface, \PHPParser_NodeVisitor
                     foreach ($item->value->items as $sitem) {
                         $this->parseItem($sitem, $domain);
                     }
+                } elseif ('attr' === $item->key->value && $item->value instanceof Closure) {
+
                 } elseif ('attr' === $item->key->value && is_array($item->value->items) ) {
                     foreach ($item->value->items as $sitem) {
                         if ('placeholder' == $sitem->key->value){
@@ -125,7 +128,17 @@ class FormExtractor implements FileVisitorInterface, \PHPParser_NodeVisitor
                     }
                 } elseif ('invalid_message' === $item->key->value) {
                     $this->parseItem($item, 'validators');
-                } else {
+                } elseif ('column/actions' === $item->key->value && is_array($item->value->items)) {
+                    foreach($item->value->items as $sitem) {
+                        if (is_array($sitem->value->items)) {
+                            foreach ($sitem->value->items as $ssitem) {
+                                if ('title' === $ssitem->key->value) {
+                                    $this->parseItem($ssitem, $domain);
+                                }
+                            }
+                        }
+                    }
+                }else {
                     $this->parseItem($item, $domain);
                 }
             }
